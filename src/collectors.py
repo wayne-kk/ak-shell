@@ -119,6 +119,7 @@ class DailyQuoteCollector(BaseCollector):
             # 重命名列
             column_mapping = {
                 '日期': 'trade_date',
+                '股票代码': 'stock_code',
                 '开盘': 'open',
                 '最高': 'high',
                 '最低': 'low',
@@ -127,6 +128,7 @@ class DailyQuoteCollector(BaseCollector):
                 '涨跌幅': 'pct_chg',
                 '成交量': 'volume',
                 '成交额': 'amount',
+                '振幅': 'amplitude',
                 '换手率': 'turnover_rate'
             }
             

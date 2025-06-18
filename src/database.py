@@ -10,6 +10,7 @@ import pandas as pd
 from loguru import logger
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from datetime import datetime, date
 
 load_dotenv()
 
@@ -89,11 +90,15 @@ class Database:
             # 将 DataFrame 转换为字典列表，处理 NaN 值
             records = df.fillna('').to_dict('records')
             
-            # 清理数据：将空字符串转换为 None
+            # 清理数据：将空字符串转换为 None，处理日期时间类型
             for record in records:
                 for key, value in record.items():
                     if value == '' or pd.isna(value):
                         record[key] = None
+                    elif isinstance(value, (pd.Timestamp, datetime)):
+                        record[key] = value.isoformat()
+                    elif isinstance(value, date):
+                        record[key] = value.isoformat()
             
             # 分批处理
             batch_size = 1000

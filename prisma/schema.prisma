@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // 股票基本信息表
@@ -39,16 +40,12 @@ model DailyQuote {
   high         Decimal? @db.Decimal(10, 2)
   low          Decimal? @db.Decimal(10, 2)
   close        Decimal? @db.Decimal(10, 2)
-  preClose     Decimal? @map("pre_close") @db.Decimal(10, 2)
-  change       Decimal? @db.Decimal(10, 2)
-  pctChg       Decimal? @map("pct_chg") @db.Decimal(10, 2)
   volume       BigInt?
   amount       Decimal? @db.Decimal(20, 2)
-  turnoverRate Decimal? @map("turnover_rate") @db.Decimal(10, 2)
-  peRatio      Decimal? @map("pe_ratio") @db.Decimal(10, 2)
-  pbRatio      Decimal? @map("pb_ratio") @db.Decimal(10, 2)
-  totalMv      Decimal? @map("total_mv") @db.Decimal(20, 2)
-  circMv       Decimal? @map("circ_mv") @db.Decimal(20, 2)
+  amplitude    Decimal? @db.Decimal(10, 2)  // 振幅
+  pctChg       Decimal? @map("pct_chg") @db.Decimal(10, 2)  // 涨跌幅
+  change       Decimal? @db.Decimal(10, 2)  // 涨跌额
+  turnoverRate Decimal? @map("turnover_rate") @db.Decimal(10, 2)  // 换手率
   updateTime   DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   // 关联关系
