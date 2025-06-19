@@ -165,4 +165,39 @@ model NorthboundCapital {
   updateTime  DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   @@map("northbound_capital")
+}
+
+// 股票人气榜数据表
+model StockHotRank {
+  id         BigInt   @id @default(autoincrement())
+  tradeDate  DateTime @map("trade_date") @db.Date
+  currentRank Int     @map("current_rank")
+  stockCode  String   @map("stock_code") @db.VarChar(10)
+  stockName  String   @map("stock_name") @db.VarChar(50)
+  latestPrice Decimal? @map("latest_price") @db.Decimal(10, 2)
+  change     Decimal? @db.Decimal(10, 2)
+  pctChg     Decimal? @map("pct_chg") @db.Decimal(10, 2)
+  updateTime DateTime @default(now()) @map("update_time") @db.Timestamptz
+
+  @@unique([tradeDate, currentRank], map: "stock_hot_rank_date_rank_unique")
+  @@unique([tradeDate, stockCode], map: "stock_hot_rank_date_code_unique")
+  @@map("stock_hot_rank")
+}
+
+// 股票飙升榜数据表
+model StockHotUp {
+  id            BigInt   @id @default(autoincrement())
+  tradeDate     DateTime @map("trade_date") @db.Date
+  rankChange    Int      @map("rank_change")           // 排名较昨日变动
+  currentRank   Int      @map("current_rank")          // 当前排名
+  stockCode     String   @map("stock_code") @db.VarChar(10)
+  stockName     String   @map("stock_name") @db.VarChar(50)
+  latestPrice   Decimal? @map("latest_price") @db.Decimal(10, 2)
+  change        Decimal? @db.Decimal(10, 2)
+  pctChg        Decimal? @map("pct_chg") @db.Decimal(10, 2)
+  updateTime    DateTime @default(now()) @map("update_time") @db.Timestamptz
+
+  @@unique([tradeDate, currentRank], map: "stock_hot_up_date_rank_unique")
+  @@unique([tradeDate, stockCode], map: "stock_hot_up_date_code_unique")
+  @@map("stock_hot_up")
 } 

@@ -87,20 +87,17 @@ npm run db:push
 ### 3. 数据采集
 
 ```bash
-# 给脚本执行权限
-chmod +x scripts/collect_history.sh
+# 采集指定时间范围历史数据
+python3 src/main.py history --start-date 20230101 --end-date 20231231
 
-# 采集近一年历史数据
-./scripts/collect_history.sh one_year
+# 采集当日完整数据（包含指数和飞书通知）
+python3 src/main.py today
 
-# 采集指定时间范围数据
-./scripts/collect_history.sh custom 20230101 20231231
+# 仅采集当日股票数据（不含指数和通知）
+python3 src/main.py stocks
 
-# 采集最新数据
-./scripts/collect_history.sh latest
-
-# 启动定时任务
-./scripts/collect_history.sh schedule
+# 设置定时任务
+./scripts/setup_crontab.sh
 ```
 
 ## 使用说明
@@ -110,43 +107,37 @@ chmod +x scripts/collect_history.sh
 #### 主采集脚本 (`src/main.py`)
 
 ```bash
-# 采集近一年历史数据
-python3 src/main.py one_year
-
 # 采集指定时间范围历史数据
 python3 src/main.py history --start-date 20230101 --end-date 20231231
 
-# 采集最新数据（增量更新）
-python3 src/main.py latest
+# 采集当日完整数据（股票+指数+飞书通知）
+python3 src/main.py today
 
-# 采集单个股票数据
-python3 src/main.py stock --stock-code 000001 --start-date 20230101
+# 仅采集当日股票数据（用于定时任务，不含指数和通知）
+python3 src/main.py stocks
 ```
 
-#### Shell 脚本 (`scripts/collect_history.sh`)
+#### 定时任务脚本
 
 ```bash
-# 查看帮助
-./scripts/collect_history.sh help
+# 设置所有定时任务
+./scripts/setup_crontab.sh
 
-# 采集近一年数据
-./scripts/collect_history.sh one_year
+# 快速测试所有功能
+./scripts/quick_test.sh
 
-# 自定义时间范围
-./scripts/collect_history.sh custom 20230101 20231231
+# 测试飞书通知
+./scripts/test_feishu.sh
 
-# 最新数据更新
-./scripts/collect_history.sh latest
-
-# 启动定时任务
-./scripts/collect_history.sh schedule
+# 手动执行日常任务
+./scripts/daily_tasks.sh
 ```
 
 ### 定时任务
 
 系统支持自动化定时任务：
 
-- **每日 16:30**: 采集最新行情数据（收盘后）
+- **每日 18:00**: 采集最新行情数据（收盘后）
 - **每周日 02:00**: 更新股票基础信息
 - **每小时**: 系统健康检查
 

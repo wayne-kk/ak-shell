@@ -61,10 +61,6 @@ class Database:
                 try:
                     result = self.supabase.table(table_name).insert(batch).execute()
                     
-                    if hasattr(result, 'error') and result.error:
-                        logger.error(f"Supabase 插入错误: {result.error}")
-                        return False
-                    
                     total_inserted += len(batch)
                     logger.info(f"成功插入批次 {i//batch_size + 1}: {len(batch)} 条记录")
                     
@@ -113,10 +109,6 @@ class Database:
                         batch, 
                         on_conflict=','.join(conflict_columns)
                     ).execute()
-                    
-                    if hasattr(result, 'error') and result.error:
-                        logger.error(f"Supabase upsert 错误: {result.error}")
-                        return False
                     
                     total_upserted += len(batch)
                     logger.info(f"成功 upsert 批次 {i//batch_size + 1}: {len(batch)} 条记录")
@@ -168,13 +160,33 @@ class Database:
     def get_stock_list(self) -> List[str]:
         """获取所有股票代码列表"""
         try:
-            # 查询股票代码，排除退市股票
-            result = self.supabase.table('stock_basic').select('stock_code').or_('status.is.null,status.neq.退市').execute()
+            all_stocks = []
+            page_size = 1000
+            offset = 0
             
-            if result.data:
-                return [row['stock_code'] for row in result.data if row['stock_code']]
+            logger.info("开始分页获取股票列表...")
             
-            return []
+            while True:
+                # 分页查询股票代码
+                result = self.supabase.table('stock_basic').select('stock_code').range(offset, offset + page_size - 1).execute()
+                
+                if not result.data:
+                    break
+                
+                # 提取股票代码
+                page_stocks = [row['stock_code'] for row in result.data if row.get('stock_code')]
+                all_stocks.extend(page_stocks)
+                
+                logger.info(f"获取第 {offset//page_size + 1} 页: {len(page_stocks)} 只股票")
+                
+                # 如果这一页的数据少于page_size，说明已经到最后一页了
+                if len(result.data) < page_size:
+                    break
+                
+                offset += page_size
+            
+            logger.info(f"总共获取到 {len(all_stocks)} 只股票代码")
+            return all_stocks
             
         except Exception as e:
             logger.error(f"获取股票列表失败: {e}")
@@ -228,7 +240,7 @@ class Database:
     def count_records(self, table_name: str, filters: Optional[Dict] = None) -> int:
         """统计记录数量"""
         try:
-            query_builder = self.supabase.table(table_name).select('*', count='exact')
+            query_builder = self.supabase.table(table_name).select('id')  # 只选择一个字段来计数
             
             # 添加过滤条件
             if filters:
@@ -236,7 +248,7 @@ class Database:
                     query_builder = query_builder.eq(key, value)
             
             result = query_builder.execute()
-            return result.count if hasattr(result, 'count') else 0
+            return len(result.data) if result.data else 0
             
         except Exception as e:
             logger.error(f"统计记录数量失败: {e}")
@@ -244,4 +256,6 @@ class Database:
 
 
 # 全局数据库实例
+
+
 db = Database() 
