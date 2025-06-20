@@ -28,6 +28,7 @@ fi
 chmod +x "$SCRIPT_DIR/daily_tasks.sh"
 chmod +x "$SCRIPT_DIR/weekly_tasks.sh"
 chmod +x "$SCRIPT_DIR/monthly_tasks.sh"
+chmod +x "$SCRIPT_DIR/news_tasks.sh"
 
 # 创建临时crontab文件
 TEMP_CRONTAB="/tmp/akshare_crontab"
@@ -62,6 +63,14 @@ cat > "$TEMP_CRONTAB" << EOF
 # 每个交易日收盘后采集当天全量数据 (工作日 18:00 - 确保数据完整性)
 0 18 * * 1-5 cd $PROJECT_DIR && python3 src/main.py today >> logs/cron_today.log 2>&1
 
+# ============== 新闻采集 ==============
+# 东方财富全球财经快讯采集 (分时段采集)
+# 白天时段每20分钟采集 (6:00-21:59)
+*/20 6-21 * * * $SCRIPT_DIR/news_tasks.sh collect >> $PROJECT_DIR/logs/cron_news.log 2>&1
+
+# 夜晚时段每2小时采集 (22:00, 0:00, 2:00, 4:00)
+0 22,0,2,4 * * * $SCRIPT_DIR/news_tasks.sh collect >> $PROJECT_DIR/logs/cron_news.log 2>&1
+
 # ============== 系统监控 ==============
 # 每小时检查系统状态 (仅在工作时间)
 0 9-17 * * 1-5 echo "[$(date)] 系统运行正常" >> $PROJECT_DIR/logs/system_status.log
@@ -95,6 +104,7 @@ if [[ $confirm =~ ^[Yy]$ ]]; then
     echo "📋 定时任务说明:"
     echo "• 当日任务: 每个交易日18:00采集当天全量数据"
     echo "• 日常任务: 每个交易日18:00和23:00采集最新数据"
+    echo "• 新闻采集: 白天(6:00-21:59)每20分钟，夜晚(22:00-5:59)每2小时"
     echo "• 周度任务: 每周日02:00执行系统维护"
     echo "• 月度任务: 每月第一个周六03:00执行大规模数据补充"
     echo ""

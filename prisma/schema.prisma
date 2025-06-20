@@ -23,10 +23,8 @@ model StockBasic {
   updateTime  DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   // 关联关系
-  dailyQuotes       DailyQuote[]
-  financialIndicators FinancialIndicator[]
-  financialStatements FinancialStatement[]
-  moneyFlows        MoneyFlow[]
+  dailyQuotes         DailyQuote[]
+  stockFundFlowRanks  StockFundFlowRank[]
 
   @@map("stock_basic")
 }
@@ -55,51 +53,6 @@ model DailyQuote {
   @@map("daily_quote")
 }
 
-// 财务指标数据表
-model FinancialIndicator {
-  id           BigInt   @id @default(autoincrement())
-  stockCode    String   @map("stock_code") @db.VarChar(10)
-  period       String   @db.VarChar(8)
-  eps          Decimal? @db.Decimal(10, 4)
-  bps          Decimal? @db.Decimal(10, 4)
-  roe          Decimal? @db.Decimal(10, 4)
-  roa          Decimal? @db.Decimal(10, 4)
-  grossMargin  Decimal? @map("gross_margin") @db.Decimal(10, 4)
-  netMargin    Decimal? @map("net_margin") @db.Decimal(10, 4)
-  debtToAsset  Decimal? @map("debt_to_asset") @db.Decimal(10, 4)
-  currentRatio Decimal? @map("current_ratio") @db.Decimal(10, 4)
-  quickRatio   Decimal? @map("quick_ratio") @db.Decimal(10, 4)
-  updateTime   DateTime @default(now()) @map("update_time") @db.Timestamptz
-
-  // 关联关系
-  stock StockBasic @relation(fields: [stockCode], references: [stockCode])
-
-  @@unique([stockCode, period], map: "financial_indicator_stock_period_unique")
-  @@map("financial_indicator")
-}
-
-// 财务报表数据表
-model FinancialStatement {
-  id              BigInt   @id @default(autoincrement())
-  stockCode       String   @map("stock_code") @db.VarChar(10)
-  period          String   @db.VarChar(8)
-  reportType      String   @map("report_type") @db.VarChar(20)
-  totalAssets     Decimal? @map("total_assets") @db.Decimal(20, 2)
-  totalLiabilities Decimal? @map("total_liabilities") @db.Decimal(20, 2)
-  equity          Decimal? @db.Decimal(20, 2)
-  revenue         Decimal? @db.Decimal(20, 2)
-  operatingProfit Decimal? @map("operating_profit") @db.Decimal(20, 2)
-  netProfit       Decimal? @map("net_profit") @db.Decimal(20, 2)
-  netProfitParent Decimal? @map("net_profit_parent") @db.Decimal(20, 2)
-  cashFlowOperate Decimal? @map("cash_flow_operate") @db.Decimal(20, 2)
-  updateTime      DateTime @default(now()) @map("update_time") @db.Timestamptz
-
-  // 关联关系
-  stock StockBasic @relation(fields: [stockCode], references: [stockCode])
-
-  @@unique([stockCode, period, reportType], map: "financial_statement_stock_period_type_unique")
-  @@map("financial_statement")
-}
 
 // 指数数据表
 model IndexData {
@@ -125,46 +78,60 @@ model IndexData {
 model TradeCalendar {
   calendarDate DateTime @id @map("calendar_date") @db.Date
   isTradeDay   Boolean  @map("is_trade_day")
-  weekDay      Int      @map("week_day") @db.SmallInt
-  isHoliday    Boolean  @map("is_holiday")
-  holidayName  String?  @map("holiday_name") @db.VarChar(50)
   updateTime   DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   @@map("trade_calendar")
 }
 
-// 资金流向数据表
-model MoneyFlow {
-  id                 BigInt   @id @default(autoincrement())
-  stockCode          String   @map("stock_code") @db.VarChar(10)
-  tradeDate          DateTime @map("trade_date") @db.Date
-  mainNetInflow      Decimal? @map("main_net_inflow") @db.Decimal(20, 2)
-  mainNetInflowRate  Decimal? @map("main_net_inflow_rate") @db.Decimal(10, 4)
-  superNetInflow     Decimal? @map("super_net_inflow") @db.Decimal(20, 2)
-  largeNetInflow     Decimal? @map("large_net_inflow") @db.Decimal(20, 2)
-  mediumNetInflow    Decimal? @map("medium_net_inflow") @db.Decimal(20, 2)
-  smallNetInflow     Decimal? @map("small_net_inflow") @db.Decimal(20, 2)
-  updateTime         DateTime @default(now()) @map("update_time") @db.Timestamptz
+// 个股资金流排名数据表
+model StockFundFlowRank {
+  id                      BigInt   @id @default(autoincrement())
+  stockCode               String   @map("stock_code") @db.VarChar(10)
+  stockName               String   @map("stock_name") @db.VarChar(50)
+  indicator               String   @db.VarChar(10)                      // 周期指标：今日/3日/5日/10日
+  tradeDate               DateTime @map("trade_date") @db.Date
+  rank                    Int?                                          // 排名序号
+  latestPrice             Decimal? @map("latest_price") @db.Decimal(10, 2)        // 最新价
+  pctChg                  Decimal? @map("pct_chg") @db.Decimal(10, 4)             // 涨跌幅（%）
+  mainNetInflowAmount     Decimal? @map("main_net_inflow_amount") @db.Decimal(20, 2)     // 主力净流入-净额
+  mainNetInflowRate       Decimal? @map("main_net_inflow_rate") @db.Decimal(10, 4)       // 主力净流入-净占比（%）
+  superLargeNetAmount     Decimal? @map("super_large_net_amount") @db.Decimal(20, 2)     // 超大单净流入-净额
+  superLargeNetRate       Decimal? @map("super_large_net_rate") @db.Decimal(10, 4)       // 超大单净流入-净占比（%）
+  largeNetAmount          Decimal? @map("large_net_amount") @db.Decimal(20, 2)           // 大单净流入-净额
+  largeNetRate            Decimal? @map("large_net_rate") @db.Decimal(10, 4)             // 大单净流入-净占比（%）
+  mediumNetAmount         Decimal? @map("medium_net_amount") @db.Decimal(20, 2)          // 中单净流入-净额
+  mediumNetRate           Decimal? @map("medium_net_rate") @db.Decimal(10, 4)            // 中单净流入-净占比（%）
+  smallNetAmount          Decimal? @map("small_net_amount") @db.Decimal(20, 2)           // 小单净流入-净额
+  smallNetRate            Decimal? @map("small_net_rate") @db.Decimal(10, 4)             // 小单净流入-净占比（%）
+  updateTime              DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   // 关联关系
   stock StockBasic @relation(fields: [stockCode], references: [stockCode])
 
-  @@unique([stockCode, tradeDate], map: "money_flow_stock_date_unique")
-  @@map("money_flow")
+  @@unique([stockCode, indicator, tradeDate], map: "stock_fund_flow_rank_unique")
+  @@map("stock_fund_flow_rank")
 }
 
-// 北向资金数据表
-model NorthboundCapital {
-  id          BigInt   @id @default(autoincrement())
-  tradeDate   DateTime @unique @map("trade_date") @db.Date
-  hkHold      Decimal? @map("hk_hold") @db.Decimal(20, 2)
-  hkHoldRatio Decimal? @map("hk_hold_ratio") @db.Decimal(10, 4)
-  netBuy      Decimal? @map("net_buy") @db.Decimal(20, 2)
-  buyAmount   Decimal? @map("buy_amount") @db.Decimal(20, 2)
-  sellAmount  Decimal? @map("sell_amount") @db.Decimal(20, 2)
-  updateTime  DateTime @default(now()) @map("update_time") @db.Timestamptz
+// 沪深港通资金流向数据表
+model HsgtFundFlow {
+  id            BigInt   @id @default(autoincrement())
+  tradeDate     DateTime @map("trade_date") @db.Date
+  type          String   @db.VarChar(10)                     // 类型：沪港通/深港通
+  sector        String   @db.VarChar(20)                     // 板块：沪股通/港股通(沪)/深股通/港股通(深)
+  direction     String   @db.VarChar(10)                     // 资金方向：北向/南向
+  tradeStatus   Int      @map("trade_status") @db.SmallInt  // 交易状态：3为收盘
+  netBuyAmount  Decimal? @map("net_buy_amount") @db.Decimal(20, 2)   // 成交净买额（亿元）
+  netInflow     Decimal? @map("net_inflow") @db.Decimal(20, 2)       // 资金净流入（亿元）
+  dayBalance    Decimal? @map("day_balance") @db.Decimal(20, 2)      // 当日资金余额（亿元）
+  upCount       Int?     @map("up_count")                    // 上涨数
+  flatCount     Int?     @map("flat_count")                  // 持平数
+  downCount     Int?     @map("down_count")                  // 下跌数
+  relatedIndex  String?  @map("related_index") @db.VarChar(20)       // 相关指数
+  indexPctChg   Decimal? @map("index_pct_chg") @db.Decimal(10, 4)    // 指数涨跌幅（%）
+  updateTime    DateTime @default(now()) @map("update_time") @db.Timestamptz
 
-  @@map("northbound_capital")
+  @@unique([tradeDate, type, sector, direction], map: "hsgt_fund_flow_unique")
+  @@map("hsgt_fund_flow")
 }
 
 // 股票人气榜数据表
@@ -180,7 +147,6 @@ model StockHotRank {
   updateTime DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   @@unique([tradeDate, currentRank], map: "stock_hot_rank_date_rank_unique")
-  @@unique([tradeDate, stockCode], map: "stock_hot_rank_date_code_unique")
   @@map("stock_hot_rank")
 }
 
@@ -198,6 +164,19 @@ model StockHotUp {
   updateTime    DateTime @default(now()) @map("update_time") @db.Timestamptz
 
   @@unique([tradeDate, currentRank], map: "stock_hot_up_date_rank_unique")
-  @@unique([tradeDate, stockCode], map: "stock_hot_up_date_code_unique")
   @@map("stock_hot_up")
+}
+
+// 股票新闻数据表（东方财富全球财经快讯）
+model StockNews {
+  id           BigInt   @id @default(autoincrement())
+  url          String   @unique @db.VarChar(500)           // 新闻链接，作为唯一标识去重
+  tag          String?  @db.VarChar(100)                   // 新闻标题
+  summary      String?  @db.Text                           // 新闻摘要
+  pubTime      String?  @map("pub_time") @db.VarChar(50)   // 发布时间（原始格式）
+  pubDateTime  DateTime? @map("pub_date_time") @db.Timestamptz // 发布时间（标准格式）
+  createTime   DateTime @default(now()) @map("create_time") @db.Timestamptz  // 采集时间
+  updateTime   DateTime @default(now()) @updatedAt @map("update_time") @db.Timestamptz
+
+  @@map("stock_news")
 } 

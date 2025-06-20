@@ -11,6 +11,8 @@ from loguru import logger
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from datetime import datetime, date
+from config import config
+from utils import retry_with_backoff
 
 load_dotenv()
 
@@ -19,9 +21,10 @@ class Database:
     """Supabase 数据库操作类"""
     
     def __init__(self):
-        # 获取 Supabase 配置
-        self.supabase_url = os.getenv('SUPABASE_URL')
-        self.supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        # 使用统一配置管理
+        db_config = config.get_database_config()
+        self.supabase_url = db_config['supabase_url']
+        self.supabase_key = db_config['supabase_key']
         
         if not self.supabase_url or not self.supabase_key:
             raise ValueError("请设置 SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY 环境变量")
@@ -75,6 +78,7 @@ class Database:
             logger.error(f"插入数据失败: {e}")
             return False
     
+    @retry_with_backoff(max_retries=3, delay=1.0)
     def upsert_dataframe(self, df: pd.DataFrame, table_name: str, 
                         conflict_columns: List[str]) -> bool:
         """使用 Supabase upsert 进行数据插入或更新"""
@@ -240,15 +244,34 @@ class Database:
     def count_records(self, table_name: str, filters: Optional[Dict] = None) -> int:
         """统计记录数量"""
         try:
-            query_builder = self.supabase.table(table_name).select('id')  # 只选择一个字段来计数
+            total_count = 0
+            page_size = 1000
+            offset = 0
             
-            # 添加过滤条件
-            if filters:
-                for key, value in filters.items():
-                    query_builder = query_builder.eq(key, value)
+            while True:
+                # 分页查询
+                query_builder = self.supabase.table(table_name).select('id')
+                
+                # 添加过滤条件
+                if filters:
+                    for key, value in filters.items():
+                        query_builder = query_builder.eq(key, value)
+                
+                # 分页范围
+                result = query_builder.range(offset, offset + page_size - 1).execute()
+                
+                if not result.data:
+                    break
+                
+                total_count += len(result.data)
+                
+                # 如果这一页数据少于page_size，说明到最后一页了
+                if len(result.data) < page_size:
+                    break
+                
+                offset += page_size
             
-            result = query_builder.execute()
-            return len(result.data) if result.data else 0
+            return total_count
             
         except Exception as e:
             logger.error(f"统计记录数量失败: {e}")

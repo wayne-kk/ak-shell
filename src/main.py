@@ -10,31 +10,23 @@ import sys
 from datetime import datetime, timedelta
 from loguru import logger
 from typing import Optional
+from config import config
+from utils import setup_logger, retry_with_backoff
 from collectors import (
     stock_basic_collector,
     daily_quote_collector,
     index_data_collector,
     stock_hot_rank_collector,
-    stock_hot_up_collector
+    stock_hot_up_collector,
+    hsgt_fund_flow_collector,
+    stock_fund_flow_rank_collector
 )
 from feishu_notify import send_completion_notice, send_daily_summary
 
 
 def setup_logging():
-    """设置日志"""
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | {message}",
-        level="INFO"
-    )
-    logger.add(
-        "logs/collector_{time:YYYY-MM-DD}.log",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
-        level="INFO",
-        rotation="1 day",
-        retention="30 days"
-    )
+    """设置日志 - 使用统一日志配置"""
+    return setup_logger("main_collector")
 
 
 def collect_historical_data(start_date: str, end_date: str = '', 
@@ -54,6 +46,10 @@ def collect_historical_data(start_date: str, end_date: str = '',
     if delay_config:
         daily_quote_collector.set_delay_config(**delay_config)
         logger.info("已应用自定义延时配置")
+    else:
+        # 使用默认配置
+        daily_quote_collector.set_delay_config(**config.DELAY_CONFIG)
+        logger.info("已应用默认延时配置")
     
     # 采集股票历史行情数据
     logger.info("\n采集股票历史行情数据...")
@@ -79,6 +75,8 @@ def collect_today_data():
     index_success = False
     hot_rank_success = False
     hot_up_success = False
+    hsgt_success = False
+    fund_flow_rank_success = False
     
     # 1. 采集当日最新行情数据（批量接口）
     logger.info("\n1. 采集当日最新行情数据...")
@@ -125,9 +123,32 @@ def collect_today_data():
     except Exception as e:
         logger.error(f"❌ 股票飙升榜数据采集异常: {e}")
     
+    # 5. 采集沪深港通资金流向数据
+    logger.info(f"\n5. 采集沪深港通资金流向数据 ({today})...")
+    try:
+        hsgt_success = hsgt_fund_flow_collector.collect_hsgt_fund_flow()
+        if hsgt_success:
+            logger.info("✅ 沪深港通资金流向数据采集成功")
+        else:
+            logger.error("❌ 沪深港通资金流向数据采集失败")
+    except Exception as e:
+        logger.error(f"❌ 沪深港通资金流向数据采集异常: {e}")
+    
+    # 6. 采集个股资金流排名数据
+    logger.info(f"\n6. 采集个股资金流排名数据 ({today})...")
+    try:
+        # 采集全周期数据：今日、3日、5日、10日
+        fund_flow_rank_success = stock_fund_flow_rank_collector.collect_fund_flow_rank(["今日", "3日", "5日", "10日"])
+        if fund_flow_rank_success:
+            logger.info("✅ 个股资金流排名数据采集成功")
+        else:
+            logger.error("❌ 个股资金流排名数据采集失败")
+    except Exception as e:
+        logger.error(f"❌ 个股资金流排名数据采集异常: {e}")
+    
     end_time = datetime.now()
     duration = end_time - start_time
-    overall_success = stock_success and index_success and hot_rank_success and hot_up_success
+    overall_success = stock_success and index_success and hot_rank_success and hot_up_success and hsgt_success and fund_flow_rank_success
     
     logger.info("\n" + "=" * 60)
     logger.info("当日数据采集完成")
@@ -139,8 +160,8 @@ def collect_today_data():
         from database import db
         stock_count = len(db.get_stock_list())
         
-        success_count = (1 if stock_success else 0) + (1 if index_success else 0) + (1 if hot_rank_success else 0) + (1 if hot_up_success else 0)
-        total_tasks = 4
+        success_count = (1 if stock_success else 0) + (1 if index_success else 0) + (1 if hot_rank_success else 0) + (1 if hot_up_success else 0) + (1 if hsgt_success else 0) + (1 if fund_flow_rank_success else 0)
+        total_tasks = 6
         
         summary_data = {
             "total_stocks": f"{stock_count}只",
@@ -153,6 +174,8 @@ def collect_today_data():
             "index_status": "✅ 成功" if index_success else "❌ 失败",
             "hot_rank_status": "✅ 成功" if hot_rank_success else "❌ 失败",
             "hot_up_status": "✅ 成功" if hot_up_success else "❌ 失败",
+            "hsgt_status": "✅ 成功" if hsgt_success else "❌ 失败",
+            "fund_flow_rank_status": "✅ 成功" if fund_flow_rank_success else "❌ 失败",
             "overall_status": f"✅ 成功({success_count}/{total_tasks})" if overall_success else f"⚠️ 部分成功({success_count}/{total_tasks})"
         }
         
@@ -164,11 +187,11 @@ def collect_today_data():
         logger.error(f"发送飞书通知失败: {e}")
         # 发送简单通知
         try:
-            success_count = (1 if stock_success else 0) + (1 if index_success else 0) + (1 if hot_rank_success else 0) + (1 if hot_up_success else 0)
+            success_count = (1 if stock_success else 0) + (1 if index_success else 0) + (1 if hot_rank_success else 0) + (1 if hot_up_success else 0) + (1 if hsgt_success else 0) + (1 if fund_flow_rank_success else 0)
             send_completion_notice(
                 "当日数据采集", 
                 overall_success,
-                {"成功任务": f"{success_count}/4", "执行时间": f"{duration.total_seconds():.1f}秒"}
+                {"成功任务": f"{success_count}/6", "执行时间": f"{duration.total_seconds():.1f}秒"}
             )
         except:
             pass
