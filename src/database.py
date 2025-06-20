@@ -11,6 +11,8 @@ from loguru import logger
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from datetime import datetime, date
+from config import config
+from utils import retry_with_backoff
 
 load_dotenv()
 
@@ -19,9 +21,10 @@ class Database:
     """Supabase 数据库操作类"""
     
     def __init__(self):
-        # 获取 Supabase 配置
-        self.supabase_url = os.getenv('SUPABASE_URL')
-        self.supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        # 使用统一配置管理
+        db_config = config.get_database_config()
+        self.supabase_url = db_config['supabase_url']
+        self.supabase_key = db_config['supabase_key']
         
         if not self.supabase_url or not self.supabase_key:
             raise ValueError("请设置 SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY 环境变量")
@@ -75,6 +78,7 @@ class Database:
             logger.error(f"插入数据失败: {e}")
             return False
     
+    @retry_with_backoff(max_retries=3, delay=1.0)
     def upsert_dataframe(self, df: pd.DataFrame, table_name: str, 
                         conflict_columns: List[str]) -> bool:
         """使用 Supabase upsert 进行数据插入或更新"""

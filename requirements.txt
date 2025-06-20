@@ -1,11 +1,36 @@
+# 数据库相关
+prisma==0.11.0
+asyncpg==0.29.0
+
+# 数据获取
 akshare>=1.13.0
 pandas>=2.0.0
+
+# 定时任务
+APScheduler==3.10.4
+
+# 时区处理
+pytz==2023.3
+
+# Web框架
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# 数据验证
+pydantic==2.5.0
+
+# 异步支持
+asyncio-throttle==1.0.2
+
+# 日志
+loguru>=0.7.0
+
+# 其他工具
 python-dotenv>=1.0.0
 schedule>=1.2.0
-loguru>=0.7.0
 toml>=0.10.2
 requests>=2.31.0
 retry>=0.9.2
 supabase>=2.3.0
-postgrest>=0.13.0 
+postgrest>=0.13.0
 httpx[socks]

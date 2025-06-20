@@ -44,6 +44,10 @@
 ### 1. 环境准备
 
 ```bash
+# 克隆项目
+git clone <project-url>
+cd ak-shell
+
 # 安装Python依赖
 pip install -r requirements.txt
 
@@ -52,6 +56,23 @@ cp env.example .env
 
 # 编辑 Supabase 连接配置
 vim .env
+```
+
+### 统一入口启动
+
+```bash
+# 股票数据采集
+python3 run.py stock today           # 采集当日完整数据
+python3 run.py stock history --start-date 20230101 --end-date 20231231
+
+# 新闻采集
+python3 run.py news collect         # 采集新闻
+python3 run.py news stats          # 查看统计
+
+# 系统管理
+python3 run.py system config       # 查看配置
+python3 run.py system logs         # 查看日志
+python3 run.py system clean        # 清理日志
 ```
 
 #### Supabase 配置
